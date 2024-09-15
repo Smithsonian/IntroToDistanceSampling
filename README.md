@@ -1,1 +1,1 @@
-"# IntroToDistanceSampling" 
+Repository provides a background lecture and activity worksheet for introducing basic concepts of distance sampling for wildlife. These introductory materials have been developed by Grant Connette and Joseph Kolowski. 
