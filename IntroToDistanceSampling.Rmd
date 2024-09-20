@@ -1,0 +1,323 @@
+---
+title: "Distance Sampling Models"
+author: "Smithsonian's National Zoo & Conservation Biology Institute"
+date: '`r format(Sys.time(), "%d %B %Y")`'
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    number_sections: false
+pdf_document: default
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<a href="https://github.com/Smithsonian/IntroToDistanceSampling.git" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+  
+### Learning Objectives
+  
+* Become familiar with distance data importing
+* Practice data exploration and cleaning
+* Practice setting up analyses and running different models
+* Use model outputs to identify optimal model selection and final density estimates
+* Increase familiarity with the various model outputs
+
+
+## Background on Distance Sampling
+ 
+Distance sampling models allow researchers to estimate population size or density, typically from line or point transect surveys. Data collection for distance sampling models involves recording the distance from each sighting to the transect line/point. By explictly modeling the decreasing frequency of sightings further from the transect line/point, distance sampling models can generate density estimates that account for the proportion of the study population that went undetected during surveys. Several key assumptions of this modeling approach are that:
+  
+  a. Objects on or near transects are detected with certainty (detection prob. = 1)
+  b. Objects are randomly distributed relative to the transect location
+  c. Objects should be measured from their initial location (i.e., before moving)
+  d. Measurements should be fairly exact (not systematically high/low)
+  e. Sufficient sightings exist to fit a detection function
+  f. Sightings should be independent of one another
+
+## Data Preparation
+
+We will work through a demonstration distance sampling analysis using data from Enonkishu Conservancy in Kenya. Data were collected during 5 driving transects that varied in length from approximately 3 - 12 km. Animals were recorded as groups/clusters, with perpendicular distance recorded to the center of the group. Thanks to Albert Cheruiyot and Lawrence Mbelati for allowing us to practice with this dataset!
+
+We will start by opening a new **R** script:
+
+1. From the "File" menu, select "New File"
+2. Click "R Script" from the list of options
+3. Save the R script in your working directory in the `Scripts` folder.  Name this file `IntroToDistanceSampling.R`
+4. Make a comment at the top of your script with your name, the date, and the purpose of the script.
+
+```{r, eval=F}
+# ******************************************************************
+# ******************************************************************
+
+# Project: Introduction to Regression in R
+# Description: A practice script which an example regression analysis
+# Author: <Your Name>
+# Date Initialized: <dd month yyyy>
+
+# ******************************************************************
+# ******************************************************************
+```
+
+Next, we will clear our environment and load some required packages
+
+```{r, message=FALSE}
+# Clean your workspace/remove all objects
+rm(list=ls())
+
+#install.packages("unmarked", "msm")
+library(tidyverse)   # For data manipulation
+library(unmarked)    # For distance sampling models
+library(msm)         # For confidence intervals
+```
+
+
+### Data Cleaning
+
+```{r, eval = T, echo = T, warning=F, message=F, results='hide'}
+# Read in dataset
+dat <- read.csv("Data/TransectData_Enonkishu.csv")
+
+# Look at the data
+View(dat)
+``` 
+
+There are a few things we might notice about this dataset that we need to address. First, there are two columns for 'Species' that we'll need to combine into one. We'll do this by using the **mutate** function to paste together entries from the two Species columns. Also, the start/end points of transects do not have species observations - in these cases the Species and Perpendicular Distance (PD) fields both have missing values. Finally, one transect has a "Transect_name" of "Test" and seems to have many duplicate group size measurements. We will drop this transect.
+
+```{r}
+# Load data
+dat <- read.csv("Data/TransectData_Enonkishu.csv")
+
+# Create a combined species field
+dists <- dat %>% mutate(SpeciesBoth = paste0(Species, Species.1)) %>% 
+  filter(SpeciesBoth != "") %>%     # Remove records with no species info
+  filter(Transect_name != "Test")   # Remove transect "Test" from the dataset
+dists$Transect_name <- as.factor(dists$Transect_name)  # Convert to factor
+
+# View the cleaned up dataset
+head(dists)
+```
+
+Now let's take a look at a histogram showing all perpendicular distances from our set of transects.
+
+```{r}
+hist(dists$PD, breaks = seq(0,1000,50), xlab="Distance (m)", main="Distribution of Sighting Distances")
+```
+
+We have a few outlier observations at distances beyond 500m that are not really part of the distribution. Let's impose a cutoff distance of 500m by dropping any observations with distances > 500m.  We also see that the distance curve does not look very smooth, so we will plan to combine our distances into 100m intervals for analysis. Finally, we'll use the **summarise** function to get a count of sightings broken down by both species and transect.
+
+```{r}
+# Truncate to 500m
+dists <- dists %>% filter(PD <= 500)# %>% filter(Transect_name != "T3") %>% droplevels()
+
+# See how many observations we have of each species and from each transect
+dists %>% summarise(count = n(), .by=SpeciesBoth) %>% arrange(desc(count))
+dists %>% summarise(count = n(), .by=Transect_name)
+```
+
+Since it is important that we have a sufficient number of observations with distance measurements to fit our models, let's filter our dataset to analyze just the Impala data for now. **A common rule-of-thumb is that you need a minimum of 30-40 observations of a species before you should try fitting distance sampling models**. We will then use a specialty function from the **unmarked** package to summarize our Impala sightings by Transect Name and Distance Bins.
+
+```{r}
+# Select data for Impala
+Impala <- dists %>% filter(SpeciesBoth == "Impala")
+
+# Summarize data by transect and distance categories (m). We could change these distances if we wanted.
+yDat <- formatDistData(Impala, distCol="PD", transectNameCol="Transect_name", dist.breaks=seq(0,500,100))
+
+yDat
+```
+
+Our final data preparation step is to use another specialty **unmarked** function to combine all the required data and information for fitting distance sampling models. We'll provide our summarized distance data, specify that our survey type was "line" transects, specify the distance breaks we're using for aggregating our observations, provide the lengths of each transect, and specify that our distance measurements are in meters.
+
+```{r}
+umf <- unmarkedFrameDS(
+   y=as.matrix(yDat),
+   siteCovs=NULL,
+   survey="line",
+   dist.breaks=seq(0,500,100),
+   tlength=c(7500, 12000, 3000, 4500, 4500),
+   unitsIn="m"
+)
+```
+
+
+## Data Analysis
+
+Now we have our **unmarked** dataframe ready to go and can start fitting some models! Note that when we specify a distance sampling model with **unmarked**, we have the option to list any abundance covariates after the first "~" symbol and any detection covariates after the second "~" in the model statement. Since we only have five replicate transects, we are unable to fit models with covariates, as we would generally want a minimum of 5-10 replicates for each covariate we include. There are several options for different model structures to try to fit the shape of the "detection curve" to our histogram/distance summary data. It's generally good practice to try several different options of detection curves, since these can vary widely in terms of how well they explain our data. A poor-fitting detection curve can mean we're pretty far off when we estimate the proportion of animals/groups that we missed during our survey. Four potential models for the detection function available in **unmarked** are the following:
+
+* Half-normal function
+* Hazard-rate function
+* Exponential function
+* Uniform function
+
+Let's fit a model to our Impala data using each of these four detection functions and compare models using AIC.
+
+```{r}
+m.half <- distsamp(~1 ~1, umf, keyfun="halfnorm", output="density", unitsOut="kmsq")
+m.haz <- distsamp(~1 ~1, umf, keyfun="hazard", output="density", unitsOut="kmsq")
+m.exp <- distsamp(~1 ~1, umf, keyfun="exp", output="density", unitsOut="kmsq")
+m.uni <- distsamp(~1 ~1, umf, keyfun="uniform", output="density", unitsOut="kmsq")
+
+fmList <- fitList(m.half=m.half, m.haz=m.haz, m.uni=m.uni, m.exp=m.exp) 
+modSel(fmList)
+```
+
+We find that the model with the exponential detection function best fits our data. Let's look at a summary from that model. We see that the density (and detection) estimates we are interested in are being reported on the log-scale. We can use the *backTransform* function to see the estimated density of impala groups in terms of number of individuals. We can also calculate transect-specific abundance estimates (i.e., predicted number of groups at each transect).
+
+```{r}
+# Examine model output
+summary(m.exp)
+
+# Convert model outputs to their original scales
+backTransform(m.exp, type="state")
+backTransform(m.exp, type="det")
+
+# Empirical Bayes estimates of abundance at each site
+ranef(m.exp)
+```
+
+
+## Goodness-of-Fit Testing
+
+It is best practice to check the fit of our distance sampling models before we rely on them. Don't worry about the details, but the block of code below will calculate three different measures of model fit - the SSE, Chi-square, and Freeman-Tukey statistics. Unlike model fitting, we want to see *non-significant* p-values here, which would indicate that our observed distance data match what would be expected based on the model.
+
+```{r}
+# Function returning three fit-statistics.
+fitstats <- function(fm) {
+  
+  observed <- getY(fm@data)
+  expected <- fitted(fm)
+  resids <- residuals(fm)
+
+  sse <- sum(resids^2)
+  chisq <- sum((observed - expected)^2 / expected)
+  freeTuke <- sum((sqrt(observed) - sqrt(expected))^2)
+  
+  out <- c(SSE=sse, Chisq=chisq, freemanTukey=freeTuke)
+ 
+  return(out)
+}
+
+(pb <- parboot(m.exp, fitstats, nsim=100))
+```
+
+Unfortunately, our model more or less fails on all three measures! Looking back at our distance summary data (yDat), it looks like we have several transects with more observations away from the transect line than we would expect. Possibly, impala are avoiding the road or moving away from the transect line and vehicle before they are counted. Sometimes we can deal with lack-of-fit problems by smoothing our distance data into fewer bins, but we have already merged down to 5 distance categories. Another option is to fit a distance sampling model with a different "error distribution". Rather than the classic *Poisson* distribution to describe variability in density, we could instead opt to try a different model which assumes a *Negative Binomial* distribution. The negative binomial model is better able to account for "overdispersion" and may provide a better fit to our data.
+
+### Dealing with Overdispersion
+
+To fit a negative binomial distance sampling model, we will need to make a new unmarked dataframe using a function specific for this type of model. We can then fit a new model with the **gdistsamp** function. This model has an added "~1" at the beginning, which allows us to model temporary emigration of animals if we have multiple surveys per transect. Since we only ran a single survey per transect, we just need to add "numPrimary=1" to our new unmarked dataframe object and select the "mixture="NB"" option. Once we've fit this model, we can perform a new goodness-of-fit test.
+
+```{r}
+
+# Create updated unmarked dataframe
+umf <- unmarkedFrameGDS(
+  y=as.matrix(yDat),
+  siteCovs=NULL,
+  survey="line",
+  dist.breaks=seq(0,500,100),
+  tlength=c(7500, 12000, 3000, 4500, 4500),
+  unitsIn="m",
+  numPrimary=1  # This is the only argument we need to add
+)
+
+# Fit the NB model
+m.exp.NB <- gdistsamp(~1, ~1, ~1, umf, keyfun="exp", output="density", unitsOut="kmsq", mixture="NB")
+
+# Check model fit
+(pb <- parboot(m.exp.NB, fitstats, nsim=100))
+```
+
+Now our model fits! Let's look at the model output, the transect level abundance predictions, and our overall (back-transformed) density estimate.
+
+```{r}
+# Review model output
+summary(m.exp.NB)
+
+# Empirical Bayes estimates of abundance at each site
+re <- ranef(m.exp.NB)
+
+# Back-transform density and detection to original scale
+Densities <- backTransform(m.exp.NB, type="lambda")  # "state" needs to change to "lambda" here
+Detection <- backTransform(m.exp.NB, type="det")
+```
+
+### Testing for Group-size Bias
+
+So far, we have been estimating the total number of groups, or clusters, of impala. If we want to come up with a density in terms of number of individuals, we can now multiply our density estimate by our mean group size. However, it is best practice to first make a plot of the size of the groups vs. distance of observations in a basic scatterplot and fit a linear model. Sometimes farther away groups are more likely to be under-counted, so our final point of due diligence is to make sure we don't see a relationship between group size and distance from the transect line.
+
+```{r}
+#Regress cluster size on distance
+plot(Impala$Group_size ~ Impala$PD)
+(cluster.det <- lm(Impala$Group_size ~ Impala$PD))
+```
+
+## Final Calculations
+
+It looks like we do not have a significant effect of distance on group size, so we're good to move forward with our calculations. We can take our density estimate from the model and multiply by our mean group size: 6.7 x 10.3 = 69.0. We can also calculate that using our existing R objects: `Densities@estimate * mean(Impala$Group_size)`
+
+This 'best guess' at the total number of impala across our transects may be good enough for some people. If we want to put confidence intervals around this abundance estimate, we will need to use the "Delta Method" as below. Don't worry too much about the details! When we're done, we'll have our estimated impala abundance and 95% confidence intervals. These intervals are not very precise (we are only working with 5 transects after all), but would improve with further surveys or the introduction of covariates into the model that explain more of the variability in impala densities.
+
+```{r}
+# Delta method
+cluster.det <- lm(Impala$Group_size ~ 1)
+N1 <- cluster.det$coefficients[1]  # Mean group-size estimate from regression model
+N2 <- Densities@estimate           # Estimated density of groups from distance sampling model
+S1 <- vcov(cluster.det)            # Variance for group size
+S2 <- vcov(Densities)              # Variance for density of groups
+
+ind.density.se <- deltamethod(~ x1*x2, c(N1, N2), matrix(c(S1,0,0,S2),2,2))
+
+lcl.density = max(0,(N1*N2 - 1.96 * ind.density.se))  # lower confidence limit is bounded at zero
+ucl.density = N1*N2 + 1.96 * ind.density.se
+
+CI.density = c(lcl.density, ucl.density)
+CI.density
+```
+
+
+## Exercise
+
+Now that you've had some practice with distance sampling models, let's try to apply what you've learned!
+
+Please create a script named `Exercise_Distance.R`.  Format the script like we have instructed you to do with your `Name`, `Date`, and `Description`.  Fully comment your code to answer the questions below.   
+
+1) What is the total number of impala observed across all 5 transects? How does this raw count compare to our model-based estimate and confidence intervals?
+
+2) Select another species from the Enonkishu dataset (preferably an abundant one) and come up with your best density estimate for this species.
+
+3) Go to this link: https://ramirodcrego.shinyapps.io/DistSamplingDemo/
+Try changing the values for 'True Population Size', 'Number of Transects', and 'Number of Bins'. How do these changes affect model estimates? Can you figure out what happens when you change 'Sigma'?
+
+Challenge Question:
+4) The code below loads data from the golf tee exercise for 7 groups. Fit a distance sampling model to this dataset and estimate the density of golf tees per square meter. The transects were 40m long and we counted out to 15m on each side of the line. You can either treat all golf tees as a single species or analyze data for just one color. The true density was 0.236 $tees/meter^2$ or 0.0295 $tees/meter^2$ if you consider just one color.
+
+# Directory where files are found
+my.dir <- "Data/GolfTees/"
+
+# List all files in a directory
+file.names <-list.files(my.dir,
+                        pattern=".csv",
+                        ignore.case=TRUE, 
+                        full.names=TRUE)
+# Print names
+file.names
+
+# Create blank frame to hold everything
+DistData <- NULL
+
+for (i in 1:length(unique(file.names))){
+  temp <- read.csv(file.names[i], header=TRUE)
+  DistData <- rbind(DistData,temp)
+}
+                  
+# Look at Data
+head(DistData)
+
+# Summarize
+dim(DistData)
+unique(DistData$Group)
+            
