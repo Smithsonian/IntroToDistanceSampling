@@ -1827,15 +1827,15 @@ fitstats &lt;- function(fm) {
 ## 
 ## Parametric Bootstrap Statistics:
 ##                t0 mean(t0 - t_B) StdDev(t0 - t_B) Pr(t_B &gt; t0)
-## SSE          86.3          35.35            20.52       0.0594
-## Chisq        43.0          20.36             7.15       0.0297
-## freemanTukey 15.8           7.33             2.03       0.0000
+## SSE          86.3          37.00            23.53       0.0594
+## Chisq        43.0          20.87             6.62       0.0000
+## freemanTukey 15.8           7.47             2.04       0.0000
 ## 
 ## t_B quantiles:
-##                0% 2.5% 25%  50%  75% 97.5% 100%
-## SSE          18.5   21  37 47.7 64.0    96  110
-## Chisq        11.6   13  18 21.1 25.9    43   48
-## freemanTukey  3.9    5   7  8.1  9.8    13   14
+##                0% 2.5%  25%  50%  75% 97.5% 100%
+## SSE          10.8 18.9 31.4 44.6 60.8   109  152
+## Chisq         9.4 12.4 17.4 21.3 25.7    39   41
+## freemanTukey  4.2  4.9  6.7  7.8  9.5    13   14
 ## 
 ## t0 = Original statistic computed from data
 ## t_B = Vector of bootstrap samples</code></pre>
@@ -1885,15 +1885,15 @@ m.exp.NB &lt;- gdistsamp(~1, ~1, ~1, umf, keyfun=&quot;exp&quot;, output=&quot;d
 ## 
 ## Parametric Bootstrap Statistics:
 ##                 t0 mean(t0 - t_B) StdDev(t0 - t_B) Pr(t_B &gt; t0)
-## SSE          336.0        -36.207           251.26        0.386
-## Chisq        502.7        -95.228           269.65        0.535
-## freemanTukey  28.4         -0.302             7.99        0.446
+## SSE          336.0       -10.5944           163.96        0.465
+## Chisq        502.7       -61.6332           188.60        0.594
+## freemanTukey  28.4         0.0714             6.04        0.446
 ## 
 ## t_B quantiles:
 ##               0% 2.5% 25% 50% 75% 97.5% 100%
-## SSE           71   98 215 299 433  1058 1550
-## Chisq        221  282 417 533 718  1358 1744
-## freemanTukey  13   15  23  28  34    47   54
+## SSE           82  122 219 332 425   776  966
+## Chisq        289  319 435 537 638  1103 1173
+## freemanTukey  14   18  24  28  32    41   43
 ## 
 ## t0 = Original statistic computed from data
 ## t_B = Vector of bootstrap samples</code></pre>
@@ -2016,30 +2016,43 @@ estimate the density of golf tees per square meter. The transects were
 either treat all golf tees as a single species or analyze data for just
 one color. The true density was 0.236 <span class="math inline">\(tees/meter^2\)</span> or 0.0295 <span class="math inline">\(tees/meter^2\)</span> if you consider just one
 color.</p>
-</div>
-<div id="directory-where-files-are-found" class="section level1">
-<h1>Directory where files are found</h1>
-<p>my.dir &lt;- “Data/GolfTees/”</p>
-</div>
-<div id="list-all-files-in-a-directory" class="section level1">
-<h1>List all files in a directory</h1>
-<p>file.names &lt;-list.files(my.dir, pattern=“.csv”, ignore.case=TRUE,
-full.names=TRUE) # Print names file.names</p>
-</div>
-<div id="create-blank-frame-to-hold-everything" class="section level1">
-<h1>Create blank frame to hold everything</h1>
-<p>DistData &lt;- NULL</p>
-<p>for (i in 1:length(unique(file.names))){ temp &lt;-
-read.csv(file.names[i], header=TRUE) DistData &lt;- rbind(DistData,temp)
-}</p>
-</div>
-<div id="look-at-data" class="section level1">
-<h1>Look at Data</h1>
-<p>head(DistData)</p>
-</div>
-<div id="summarize" class="section level1">
-<h1>Summarize</h1>
-<p>dim(DistData) unique(DistData$Group)</p>
+<pre class="r"><code># Directory where files are found
+my.dir &lt;- &quot;Data/GolfTees/&quot;
+
+# List all files in a directory
+file.names &lt;-list.files(my.dir,
+                        pattern=&quot;.csv&quot;,
+                        ignore.case=TRUE, 
+                        full.names=TRUE)
+# Print names
+file.names</code></pre>
+<pre><code>## [1] &quot;Data/GolfTees/Group1.csv&quot; &quot;Data/GolfTees/Group2.csv&quot;
+## [3] &quot;Data/GolfTees/Group3.csv&quot; &quot;Data/GolfTees/Group4.csv&quot;
+## [5] &quot;Data/GolfTees/Group5.csv&quot; &quot;Data/GolfTees/Group6.csv&quot;
+## [7] &quot;Data/GolfTees/Group7.csv&quot;</code></pre>
+<pre class="r"><code># Create blank frame to hold everything
+DistData &lt;- NULL
+
+for (i in 1:length(unique(file.names))){
+  temp &lt;- read.csv(file.names[i], header=TRUE)
+  DistData &lt;- rbind(DistData,temp)
+}
+                  
+# Look at Data
+head(DistData)</code></pre>
+<pre><code>##   Color Distance    Group
+## 1  Pink        0 Koileken
+## 2  Blue        4 Koileken
+## 3 White        0 Koileken
+## 4  Blue        2 Koileken
+## 5 White        1 Koileken
+## 6 Brown        0 Koileken</code></pre>
+<pre class="r"><code># Summarize
+dim(DistData)</code></pre>
+<pre><code>## [1] 545   3</code></pre>
+<pre class="r"><code>unique(DistData$Group)</code></pre>
+<pre><code>## [1] &quot;Koileken&quot;       &quot;KarimiSaidimu&quot;  &quot;EugeneGertrude&quot; &quot;Gideon&quot;        
+## [5] &quot;KasaineCasper&quot;  &quot;LokitelaGitau&quot;  &quot;Sam&quot;</code></pre>
 </div>
 
 

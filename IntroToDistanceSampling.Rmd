@@ -295,6 +295,7 @@ Try changing the values for 'True Population Size', 'Number of Transects', and '
 Challenge Question:
 4) The code below loads data from the golf tee exercise for 7 groups. Fit a distance sampling model to this dataset and estimate the density of golf tees per square meter. The transects were 40m long and we counted out to 15m on each side of the line. You can either treat all golf tees as a single species or analyze data for just one color. The true density was 0.236 $tees/meter^2$ or 0.0295 $tees/meter^2$ if you consider just one color.
 
+```{r}
 # Directory where files are found
 my.dir <- "Data/GolfTees/"
 
@@ -321,3 +322,4 @@ head(DistData)
 dim(DistData)
 unique(DistData$Group)
             
+```
